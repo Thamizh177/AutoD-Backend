@@ -12,7 +12,7 @@ from typing import List, Dict
 
 # ---------- Docker SDK imports ----------
 from docker.models.containers import Container
-from engine2 import get_docker_client
+# from engine2 import get_docker_client
 
 
 # ============================================================

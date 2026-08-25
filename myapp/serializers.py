@@ -37,3 +37,12 @@ class ScalingEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScalingEvent
         fields = "__all__"
+
+class DockerContainerSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    image = serializers.CharField()
+    status = serializers.CharField()
+    health = serializers.CharField()
+    created = serializers.CharField(allow_null=True)
+    ports = serializers.JSONField()

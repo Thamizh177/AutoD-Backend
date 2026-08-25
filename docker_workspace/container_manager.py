@@ -24,54 +24,84 @@ def list_containers(client) -> List[Dict]:
     Returns a lightweight list of all containers (running + stopped).
 
     This function is optimized for dashboards and APIs.
-    It avoids expensive inspect calls and uses cached attributes only.
+    It avoids expensive image lookups and inspect calls.
     """
 
-    # Initialize the final list that will be returned
+    # Initialize the final list
     containers_data: List[Dict] = []
 
-    # Fetch all containers (including stopped ones)
+    # Fetch all containers
     containers: List[Container] = client.containers.list(all=True)
 
-    # Iterate over each container object
+    # Iterate through containers
     for container in containers:
 
-        # Safely extract container health status (may not exist)
+        # ----------------------------------------------------
+        # Container metadata
+        # ----------------------------------------------------
+
+        attrs = container.attrs
+
+        # ----------------------------------------------------
+        # Health status
+        # ----------------------------------------------------
+
         health_status = (
-            container.attrs
+            attrs
             .get("State", {})
             .get("Health", {})
             .get("Status")
         )
 
-        # Safely extract exposed ports mapping
+        # ----------------------------------------------------
+        # Ports
+        # ----------------------------------------------------
+
         ports = (
-            container.attrs
+            attrs
             .get("NetworkSettings", {})
             .get("Ports", {})
         )
 
-        # Determine image name (fallback to image ID if no tag)
+        # ----------------------------------------------------
+        # Image information
+        # ----------------------------------------------------
+        #
+        # IMPORTANT:
+        # Do NOT use container.image here.
+        #
+        # container.image makes Docker SDK look up the
+        # actual image. If the image was deleted but the
+        # container still exists, ImageNotFound is raised.
+        #
+        # Config.Image is already present in the container
+        # metadata and doesn't require an image lookup.
+        # ----------------------------------------------------
+
         image_name = (
-            container.image.tags[0]
-            if container.image.tags
-            else container.image.short_id
+            attrs
+            .get("Config", {})
+            .get("Image")
         )
 
-        # Append structured container info
+        if not image_name:
+            image_name = "unknown"
+
+        # ----------------------------------------------------
+        # Build response
+        # ----------------------------------------------------
+
         containers_data.append({
-            "id": container.short_id,          # Short container ID
-            "name": container.name,            # Container name
-            "image": image_name,               # Image name or ID
-            "status": container.status,        # running / exited / paused
-            "health": health_status or "none", # healthy / unhealthy / none
-            "created": container.attrs.get("Created"),
-            "ports": ports
+            "id": container.short_id,
+            "name": container.name,
+            "image": image_name,
+            "status": container.status,
+            "health": health_status or "none",
+            "created": attrs.get("Created"),
+            "ports": ports,
         })
 
-    # Return final structured list
     return containers_data
-
 
 # ============================================================
 # INSPECT CONTAINER (HEAVY OPERATION)

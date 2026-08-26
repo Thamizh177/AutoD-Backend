@@ -1,14 +1,6 @@
 from django.urls import path
 
-from .views import (
-    DockerConnectionView,
-    DockerContainerListView,
-    DockerContainerInspectView,
-    DockerContainerLogsView,
-    DockerContainerStartView,
-    DockerContainerStopView,
-    DockerContainerRestartView,
-)
+from .views import *
 
 
 urlpatterns = [
@@ -61,5 +53,57 @@ urlpatterns = [
         "docker/containers/<str:container_id>/restart/",
         DockerContainerRestartView.as_view(),
         name="docker-container-restart",
+    ),
+    
+    # ======================================================
+    # Network APIs
+    # ======================================================
+
+    path(
+        "docker/networks/",
+        DockerNetworkListView.as_view(),
+        name="docker-networks",
+    ),
+
+    path(
+        "docker/networks/containers/",
+        DockerContainersByNetworkView.as_view(),
+        name="docker-containers-by-network",
+    ),
+
+    path(
+        "docker/containers/<str:container_id>/networks/",
+        DockerContainerNetworkInspectView.as_view(),
+        name="docker-container-networks",
+    ),
+
+    path(
+        "docker/networks/<str:network_name>/containers/",
+        DockerNetworkContainersView.as_view(),
+        name="docker-network-containers",
+    ),
+
+    path(
+        "docker/containers/<str:container_id>/network-issues/",
+        DockerContainerNetworkIssuesView.as_view(),
+        name="docker-container-network-issues",
+    ),
+
+    path(
+        "docker/containers/<str:container_id>/reconnect/",
+        DockerContainerReconnectView.as_view(),
+        name="docker-container-reconnect",
+    ),
+
+    path(
+        "docker/networks/events/",
+        DockerNetworkEventsView.as_view(),
+        name="docker-network-events",
+    ),
+
+    path(
+        "docker/networks/summary/",
+        DockerNetworkSummaryView.as_view(),
+        name="docker-network-summary",
     ),
 ]

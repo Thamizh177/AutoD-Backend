@@ -23,7 +23,7 @@ from typing import Dict, List, Optional
 from docker.models.networks import Network
 from docker.models.containers import Container
 
-from engine2 import get_docker_client
+# from engine2 import get_docker_client
 
 
 # =====================================================================
@@ -572,36 +572,36 @@ def summarize_network_state(
 # OPTIONAL LOCAL TEST
 # =====================================================================
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    docker_engine = get_docker_client()
+#     docker_engine = get_docker_client()
 
-    if docker_engine["status"] != "connected":
+#     if docker_engine["status"] != "connected":
 
-        print(
-            "Error: Unable to connect to Docker Engine."
-        )
+#         print(
+#             "Error: Unable to connect to Docker Engine."
+#         )
 
-    else:
+#     else:
 
-        client = docker_engine["client"]
+#         client = docker_engine["client"]
 
-        print(
-            "\nDocker connected successfully."
-        )
+#         print(
+#             "\nDocker connected successfully."
+#         )
 
-        print(
-            "\nDocker Networks:"
-        )
+#         print(
+#             "\nDocker Networks:"
+#         )
 
-        print(
-            list_networks(client)
-        )
+#         print(
+#             list_networks(client)
+#         )
 
-        print(
-            "\nContainers by Network:"
-        )
+#         print(
+#             "\nContainers by Network:"
+#         )
 
-        print(
-            list_containers_by_network(client)
-        )
+#         print(
+#             list_containers_by_network(client)
+#         )

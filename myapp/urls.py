@@ -106,4 +106,26 @@ urlpatterns = [
         DockerNetworkSummaryView.as_view(),
         name="docker-network-summary",
     ),
+    
+    # ======================================================
+    # Resource monitor APIs
+    # ======================================================
+    
+    path(
+    "docker/containers/<str:container_id>/metrics/",
+    DockerContainerMetricsView.as_view(),
+    name="docker-container-metrics",
+    ),
+
+    path(
+        "docker/containers/<str:container_id>/threshold/",
+        DockerContainerThresholdView.as_view(),
+        name="docker-container-threshold",
+    ),
+
+    path(
+        "docker/resources/",
+        DockerResourceSummaryView.as_view(),
+        name="docker-resource-summary",
+),
 ]

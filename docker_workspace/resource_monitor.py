@@ -4,7 +4,7 @@ from typing import Dict, Any
 from enum import Enum
 import time
 from typing import List, Iterator, Tuple
-from engine2 import get_docker_client
+# from engine2 import get_docker_client
 import json
 
 @dataclass
@@ -179,18 +179,18 @@ class ResourceMonitor:
     def stop(self):
         self._running = False
         
-engine_result = get_docker_client()
-print(engine_result)
-if engine_result["status"] != "connected":
-    print("Error connecting to the docker")
+# engine_result = get_docker_client()
+# print(engine_result)
+# if engine_result["status"] != "connected":
+#     print("Error connecting to the docker")
 
-client = engine_result["client"]
-raw_stat = DockerStatsProvider(client)
-container_id = "fb3e5386c8361f9a034b66efa9b8c9a85673306e1debe146bc420d90f57b0f34"
-result = raw_stat.get_raw_stats(container_id)
-print(result)
-print(               )
-print(json.dumps(result,indent=2))
+# client = engine_result["client"]
+# raw_stat = DockerStatsProvider(client)
+# container_id = "fb3e5386c8361f9a034b66efa9b8c9a85673306e1debe146bc420d90f57b0f34"
+# result = raw_stat.get_raw_stats(container_id)
+# print(result)
+# print(               )
+# print(json.dumps(result,indent=2))
 
-metric = MetricsParser.parse(container_id, result)
-print(metric)
+# metric = MetricsParser.parse(container_id, result)
+# print(metric)

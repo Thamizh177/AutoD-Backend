@@ -5,6 +5,7 @@ from rest_framework import status
 from docker_workspace.engine2 import get_docker_client
 from docker_workspace.container_manager import (list_containers,inspect_container,get_container_logs,start_container,stop_container,restart_container)
 from docker_workspace.network_manager import *
+from docker_workspace.resource_monitor import *
 from .serializers import DockerContainerSerializer
 
 class DockerConnectionView(APIView):
@@ -752,6 +753,316 @@ class DockerNetworkSummaryView(APIView):
             {
                 "status": "success",
                 "summary": summary,
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+class DockerContainerMetricsView(APIView):
+
+    def get(self, request, container_id):
+
+        # --------------------------------------------------
+        # Step 1: Check Docker connection
+        # --------------------------------------------------
+
+        engine_result = get_docker_client()
+
+        if engine_result["status"] != "connected":
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": engine_result["message"],
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # --------------------------------------------------
+        # Step 2: Get Docker client
+        # --------------------------------------------------
+
+        client = engine_result["client"]
+
+        # --------------------------------------------------
+        # Step 3: Create stats provider
+        # --------------------------------------------------
+
+        stats_provider = DockerStatsProvider(client)
+
+        # --------------------------------------------------
+        # Step 4: Get raw Docker statistics
+        # --------------------------------------------------
+
+        try:
+
+            raw_stats = stats_provider.get_raw_stats(
+                container_id
+            )
+
+        except Exception as error:
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(error),
+                    "container_id": container_id,
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # --------------------------------------------------
+        # Step 5: Parse Docker statistics
+        # --------------------------------------------------
+
+        try:
+
+            metrics = MetricsParser.parse(
+                container_id,
+                raw_stats
+            )
+
+        except Exception as error:
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": f"Failed to parse container metrics: {error}",
+                    "container_id": container_id,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # --------------------------------------------------
+        # Step 6: Return live metrics
+        # --------------------------------------------------
+
+        return Response(
+            {
+                "status": "success",
+                "container_id": metrics.container_id,
+                "metrics": {
+                    "cpu_percent": metrics.cpu_percent,
+                    "memory_usage": metrics.memory_usage,
+                    "memory_limit": metrics.memory_limit,
+                    "network_rx": metrics.network_rx,
+                    "network_tx": metrics.network_tx,
+                    "block_read": metrics.block_read,
+                    "block_write": metrics.block_write,
+                    "pids": metrics.pids,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+class DockerContainerThresholdView(APIView):
+
+    def get(self, request, container_id):
+
+        # --------------------------------------------------
+        # Step 1: Check Docker connection
+        # --------------------------------------------------
+
+        engine_result = get_docker_client()
+
+        if engine_result["status"] != "connected":
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": engine_result["message"],
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        # --------------------------------------------------
+        # Step 2: Get Docker client
+        # --------------------------------------------------
+
+        client = engine_result["client"]
+
+        # --------------------------------------------------
+        # Step 3: Create stats provider
+        # --------------------------------------------------
+
+        stats_provider = DockerStatsProvider(client)
+
+        # --------------------------------------------------
+        # Step 4: Get raw statistics
+        # --------------------------------------------------
+
+        try:
+
+            raw_stats = stats_provider.get_raw_stats(
+                container_id
+            )
+
+        except Exception as error:
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(error),
+                    "container_id": container_id,
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # --------------------------------------------------
+        # Step 5: Parse metrics
+        # --------------------------------------------------
+
+        try:
+
+            metrics = MetricsParser.parse(
+                container_id,
+                raw_stats
+            )
+
+        except Exception as error:
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": f"Failed to parse metrics: {error}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # --------------------------------------------------
+        # Step 6: Evaluate thresholds
+        # --------------------------------------------------
+
+        evaluator = ThresholdEvaluator()
+
+        level = evaluator.evaluate(metrics)
+
+        # Calculate memory percentage for response
+
+        if metrics.memory_limit > 0:
+
+            memory_percent = (
+                metrics.memory_usage /
+                metrics.memory_limit
+            ) * 100
+
+        else:
+
+            memory_percent = 0.0
+
+        # --------------------------------------------------
+        # Step 7: Return threshold information
+        # --------------------------------------------------
+
+        return Response(
+            {
+                "status": "success",
+                "container_id": container_id,
+                "threshold": level.value,
+                "metrics": {
+                    "cpu_percent": metrics.cpu_percent,
+                    "memory_percent": memory_percent,
+                },
+                "limits": {
+                    "cpu": {
+                        "warn": evaluator.cpu_warn,
+                        "critical": evaluator.cpu_critical,
+                    },
+                    "memory": {
+                        "warn": evaluator.memory_warn,
+                        "critical": evaluator.memory_critical,
+                    },
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+class DockerResourceSummaryView(APIView):
+
+    def get(self, request):
+
+        # --------------------------------------------------
+        # Step 1: Check Docker connection
+        # --------------------------------------------------
+
+        engine_result = get_docker_client()
+
+        if engine_result["status"] != "connected":
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": engine_result["message"],
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        client = engine_result["client"]
+
+        # --------------------------------------------------
+        # Step 2: Get all containers
+        # --------------------------------------------------
+
+        containers = client.containers.list(
+            all=True
+        )
+
+        stats_provider = DockerStatsProvider(client)
+
+        results = []
+
+        # --------------------------------------------------
+        # Step 3: Collect one snapshot
+        # --------------------------------------------------
+
+        for container in containers:
+
+            try:
+
+                raw_stats = stats_provider.get_raw_stats(
+                    container.id
+                )
+
+                metrics = MetricsParser.parse(
+                    container.id,
+                    raw_stats
+                )
+
+                results.append(
+                    {
+                        "container_id": metrics.container_id,
+                        "name": container.name,
+                        "metrics": {
+                            "cpu_percent": metrics.cpu_percent,
+                            "memory_usage": metrics.memory_usage,
+                            "memory_limit": metrics.memory_limit,
+                            "network_rx": metrics.network_rx,
+                            "network_tx": metrics.network_tx,
+                            "block_read": metrics.block_read,
+                            "block_write": metrics.block_write,
+                            "pids": metrics.pids,
+                        },
+                    }
+                )
+
+            except Exception as error:
+
+                results.append(
+                    {
+                        "container_id": container.id,
+                        "name": container.name,
+                        "error": str(error),
+                    }
+                )
+
+        # --------------------------------------------------
+        # Step 4: Return snapshot
+        # --------------------------------------------------
+
+        return Response(
+            {
+                "status": "success",
+                "count": len(results),
+                "containers": results,
             },
             status=status.HTTP_200_OK,
         )

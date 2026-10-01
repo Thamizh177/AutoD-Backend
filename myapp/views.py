@@ -6,6 +6,7 @@ from docker_workspace.engine2 import get_docker_client
 from docker_workspace.container_manager import (list_containers,inspect_container,get_container_logs,start_container,stop_container,restart_container)
 from docker_workspace.network_manager import *
 from docker_workspace.resource_monitor import *
+from docker_workspace.replica_manager import *
 from .serializers import DockerContainerSerializer
 
 class DockerConnectionView(APIView):
@@ -1066,3 +1067,289 @@ class DockerResourceSummaryView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        
+class ReplicaListView(APIView):
+    """
+    Get all currently running replicas.
+    """
+
+    def get(self, request):
+        try:
+            manager = ReplicaManager()
+
+            replicas = manager.get_replicas()
+
+            return Response(
+                {
+                    "status": "success",
+                    "replica_count": len(replicas),
+                    "replicas": [
+                        {
+                            "name": container.name,
+                            "id": container.short_id,
+                            "status": container.status,
+                        }
+                        for container in replicas
+                    ],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ReplicaCountView(APIView):
+    """
+    Get the current number of running replicas.
+    """
+
+    def get(self, request):
+        try:
+            manager = ReplicaManager()
+
+            count = manager.get_replica_count()
+
+            return Response(
+                {
+                    "status": "success",
+                    "replica_count": count,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ReplicaScaleUpView(APIView):
+    """
+    Create additional replicas.
+    """
+
+    def post(self, request):
+        try:
+            count = int(request.data.get("count", 1))
+
+            if count <= 0:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "count must be greater than 0.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            manager = ReplicaManager()
+
+            created = manager.scale_up(count)
+
+            return Response(
+                {
+                    "status": "success",
+                    "requested_count": count,
+                    "created_count": len(created),
+                    "created_replicas": [
+                        {
+                            "name": container.name,
+                            "id": container.short_id,
+                            "status": container.status,
+                        }
+                        for container in created
+                    ],
+                    "current_replica_count": (
+                        manager.get_replica_count()
+                    ),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValueError:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "count must be an integer.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ReplicaScaleDownView(APIView):
+    """
+    Remove additional replicas.
+    """
+
+    def post(self, request):
+        try:
+            count = int(request.data.get("count", 1))
+
+            if count <= 0:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "count must be greater than 0.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            manager = ReplicaManager()
+
+            removed = manager.scale_down(count)
+
+            return Response(
+                {
+                    "status": "success",
+                    "requested_count": count,
+                    "removed_count": len(removed),
+                    "removed_replicas": removed,
+                    "current_replica_count": (
+                        manager.get_replica_count()
+                    ),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except ValueError:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "count must be an integer.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ReplicaScaleToView(APIView):
+    """
+    Scale the service to a requested target count.
+    """
+
+    def post(self, request):
+        try:
+            target_count = int(
+                request.data.get("target_count")
+            )
+
+            if target_count < 0:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": (
+                            "target_count cannot be negative."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            manager = ReplicaManager()
+
+            result = manager.scale_to(target_count)
+
+            created_replicas = []
+            removed_replicas = []
+
+            for item in result:
+
+                if hasattr(item, "name"):
+                    created_replicas.append(
+                        {
+                            "name": item.name,
+                            "id": item.short_id,
+                            "status": item.status,
+                        }
+                    )
+
+                else:
+                    removed_replicas.append(item)
+
+            return Response(
+                {
+                    "status": "success",
+                    "requested_target": target_count,
+                    "created_replicas": created_replicas,
+                    "removed_replicas": removed_replicas,
+                    "current_replica_count": (
+                        manager.get_replica_count()
+                    ),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except (TypeError, ValueError):
+            return Response(
+                {
+                    "status": "error",
+                    "message": (
+                        "target_count must be an integer."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ReplicaStatusView(APIView):
+    """
+    Get complete replica manager status.
+    """
+
+    def get(self, request):
+        try:
+            manager = ReplicaManager()
+
+            result = manager.get_status()
+
+            return Response(
+                {
+                    "status": "success",
+                    "data": result,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as exc:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

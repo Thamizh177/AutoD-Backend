@@ -31,16 +31,16 @@ import time
 from docker.errors import APIError, NotFound
 
 # Central Docker connection manager
-from engine2 import get_docker_client
+from docker_workspace.engine2 import get_docker_client
 
 # Existing container-management functions
-from container_manager import (
+from docker_workspace.container_manager import (
     list_containers as manager_list_containers,
     inspect_container as manager_inspect_container,
 )
 
 # Existing network-management functions
-from network_manager import (
+from docker_workspace.network_manager import (
     list_containers_by_network,
     inspect_container_networks,
 )

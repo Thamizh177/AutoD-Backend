@@ -127,5 +127,46 @@ urlpatterns = [
         "docker/resources/",
         DockerResourceSummaryView.as_view(),
         name="docker-resource-summary",
-),
+    ),
+    
+    # ======================================================
+    # Replica mnager APIs
+    # ======================================================
+    
+    
+    path(
+        "docker/replicas/",
+        ReplicaListView.as_view(),
+        name="replica-list",
+    ),
+
+    path(
+        "docker/replicas/count/",
+        ReplicaCountView.as_view(),
+        name="replica-count",
+    ),
+
+    path(
+        "docker/replicas/scale-up/",
+        ReplicaScaleUpView.as_view(),
+        name="replica-scale-up",
+    ),
+
+    path(
+        "docker/replicas/scale-down/",
+        ReplicaScaleDownView.as_view(),
+        name="replica-scale-down",
+    ),
+
+    path(
+        "docker/replicas/scale-to/",
+        ReplicaScaleToView.as_view(),
+        name="replica-scale-to",
+    ),
+
+    path(
+        "docker/replicas/status/",
+        ReplicaStatusView.as_view(),
+        name="replica-status",
+    ),
 ]

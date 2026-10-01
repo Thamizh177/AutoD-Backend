@@ -15,8 +15,7 @@ Its responsibility is only:
 Docker operations are delegated to DockerAdapter.
 """
 
-from docker_adapter import DockerAdapter
-
+from docker_workspace.docker_adapter import *
 
 class ReplicaManager:
     """
